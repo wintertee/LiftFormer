@@ -35,9 +35,14 @@ class Options:
         self.parser.add_argument('--pre_LN', dest='pre_LN', action='store_true')
         self.parser.add_argument('--no-pre_LN', dest='pre_LN', action='store_false')
         self.parser.set_defaults(pre_LN=True)
+
         self.parser.add_argument('--use_noam', dest='use_noam', action='store_true')
         self.parser.add_argument('--no-use_noam', dest='use_noam', action='store_false')
         self.parser.set_defaults(use_noam=False)
+
+        self.parser.add_argument('--ReduceLROnPlateau', dest='ReduceLROnPlateau', action='store_true')
+        self.parser.add_argument('--no-ReduceLROnPlateau', dest='ReduceLROnPlateau', action='store_false')
+        self.parser.set_defaults(ReduceLROnPlateau=False)
 
         # ===============================================================
         #                     Running options

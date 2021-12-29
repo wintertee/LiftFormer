@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import os
 from liftformer.Model import Liftformer
 import torch.nn as nn
-from liftformer.Optim import NoamLR
+from liftformer.Optim import NoamAdam
 import matplotlib.pyplot as plt
 from datasets.Human36M import show3Dpose, show2Dpose
 import math
@@ -45,13 +45,19 @@ def main(opt):
     if torch.cuda.is_available():
         model = model.cuda()
         criterion = criterion.cuda()
-    # create optimizers
-    # optimizer = NoamOpt(torch.optim.Adam(model.parameters(), betas=(0.9, 0.98), eps=1e-09), 2.0, 512, 4000)
-    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.9, 0.98), eps=1e-09)
-    if opt.use_noam:
-        scheduler = NoamLR(optimizer, 4000)
-    else:
+        # create optimizers
+        optimizer = NoamAdam(opt.use_noam,
+                             opt.d_model,
+                             4000,
+                             writer,
+                             params=model.parameters(),
+                             lr=opt.lr,
+                             betas=(0.9, 0.98),
+                             eps=1e-09)
+    if opt.ReduceLROnPlateau:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True)
+    else:
+        scheduler = None
 
     # load checkpoint if needed/ wanted
     start_epoch = 0
@@ -63,8 +69,10 @@ def main(opt):
         model.load_state_dict(ckpt['model'])
         start_epoch = ckpt['epoch']
         glob_step = ckpt['glob_step']
+        optimizer.set_n_steps(glob_step)
         optimizer.load_state_dict(ckpt['optimizer'])
-        scheduler.load_state_dict(ckpt['scheduler'])
+        if scheduler:
+            scheduler.load_state_dict(ckpt['scheduler'])
         best_error = ckpt['best_error']
         print(">>> ckpt loaded (epoch: {} | err: {})".format(start_epoch, best_error))
 
@@ -122,12 +130,13 @@ def main(opt):
     print(">>> data loaded !")
 
     for epoch in range(start_epoch, opt.epochs):
-        writer.add_scalar('lr', optimizer.param_groups[0]['lr'], epoch)
+
         glob_step, train_loss = train(train_data_loader, model, criterion, optimizer, writer, glob_step, epoch, stat_2d,
                                       stat_3d, opt.receptive_field, opt.log_img_freq)
         test_loss, test_error = test(test_data_loader, model, criterion, opt.receptive_field, stat_2d, stat_3d,
                                      opt.log_img_freq, writer, epoch)
-        scheduler.step(test_loss)
+        if scheduler:
+            scheduler.step(test_loss)
         is_best = 'best' if best_error > test_error else ''
         best_error = min(best_error, test_error)
 
@@ -136,10 +145,11 @@ def main(opt):
             'model': model.state_dict(),
             'epoch': epoch,
             'optimizer': optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
             'glob_step': glob_step,
             'best_error': best_error
         }
+        if scheduler:
+            cpkt['scheduler'] = scheduler.state_dict()
         torch.save(cpkt, os.path.join(opt.log_path, '{}{}.ckpt'.format(epoch, is_best)))
 
 
@@ -207,8 +217,6 @@ def test(test_loader, model, criterion, receptive_field, stat_2d, stat_3d, log_i
     errors = AverageMeter()
     test_n_iter = 0
     model.eval()
-
-    all_dist = []
 
     with tqdm(test_loader, unit="batch") as tepoch:
         tepoch.set_description(f"Test  Epoch {epoch}")

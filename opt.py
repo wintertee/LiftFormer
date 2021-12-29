@@ -42,7 +42,7 @@ class Options:
 
         self.parser.add_argument('--ReduceLROnPlateau', dest='ReduceLROnPlateau', action='store_true')
         self.parser.add_argument('--no-ReduceLROnPlateau', dest='ReduceLROnPlateau', action='store_false')
-        self.parser.set_defaults(ReduceLROnPlateau=False)
+        self.parser.set_defaults(ReduceLROnPlateau=True)
 
         # ===============================================================
         #                     Running options

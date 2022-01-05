@@ -16,7 +16,7 @@ Download `best.cpkt`: https://drive.google.com/file/d/1o3ZbeDh3O2hdkTydUXqd8J62W
 
 ## MPJPE Result
 
-MPJPE = 39.325274987216694
+MPJPE = 39.3252 mm
 
 | Directions | Discussion | Eating  | Greeting | Phoning | Photo   | Posing  | Purchases | Sitting | SittingDown | Smoking | Waiting | WalkDog | Walking | WalkTogether |
 | ---------- | ---------- | ------- | -------- | ------- | ------- | ------- | --------- | ------- | ----------- | ------- | ------- | ------- | ------- | ------------ |

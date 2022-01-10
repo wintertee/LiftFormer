@@ -1,0 +1,1 @@
+pandoc README.MD -o README.pdf -f markdown+implicit_figures --pdf-engine=xelatex

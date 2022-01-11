@@ -14,6 +14,10 @@ run `python datasets/process.py` to process dataset.
 
 Download `best.cpkt`: https://drive.google.com/file/d/1o3ZbeDh3O2hdkTydUXqd8J62WfO9Lib1/view?usp=sharing
 
+## Demo
+
+`python demo.py --load runs/2/30best.ckpt -i data/all_poses_modified.npy`
+
 ## MPJPE Result
 
 MPJPE = 39.3252 mm

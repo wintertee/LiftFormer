@@ -1,55 +1,97 @@
 import argparse
 import os
-from pprint import pprint
 import torch
 import json
 from liftformer.Model import Liftformer
-from datasets.process import H36M_to_17, unNormalizeData
 import numpy as np
 import math
 from datasets.Human36M import show3Dpose, show2Dpose
 import matplotlib.pyplot as plt
 
 
-class Options:
-    def __init__(self):
-        self.parser = argparse.ArgumentParser()
-        self.opt = None
+def unNormalizeData(normalized_data, data_mean, data_std, dimensions_to_use):
 
-        self.parser.add_argument('--load', type=str, default='', help='path to load a pretrained checkpoint')
+    T = normalized_data.shape[0]  # Batch size
+    D = data_mean.shape[0]  # 96
 
-    def _print(self):
-        print("\n==================Options=================")
-        pprint(vars(self.opt), indent=4)
-        print("==========================================\n")
+    orig_data = np.zeros((T, D), dtype=np.float32)
 
-    def parse(self):
-        self.opt = self.parser.parse_args()
-        self._print()
-        if not os.path.exists(self.opt.log_path):
-            os.mkdir(self.opt.log_path)
-        return self.opt
+    orig_data[:, dimensions_to_use] = normalized_data
+
+    # Multiply times stdev and add the mean
+    stdMat = data_std.reshape((1, D))
+    stdMat = np.repeat(stdMat, T, axis=0)
+    meanMat = data_mean.reshape((1, D))
+    meanMat = np.repeat(meanMat, T, axis=0)
+    orig_data = np.multiply(orig_data, stdMat) + meanMat
+    return orig_data
 
 
-def normalize2d(raw_data, data_mean, data_std):
+def show2DposeLandmk(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):
+    """Visualize a 2d skeleton
+    Args
+      channels: 64x1 vector. The pose to plot.
+      ax: matplotlib axis to draw on
+      lcolor: color for left part of the body
+      rcolor: color for right part of the body
+      add_labels: whether to add coordinate labels
+    Returns
+      Nothing. Draws on ax.
 
-    dimensions_to_use = np.array(list(H36M_to_17.keys()))
-    dimensions_to_use = np.sort(np.hstack((dimensions_to_use * 2, dimensions_to_use * 2 + 1)))
+      MIT License
 
-    data_mean = data_mean[dimensions_to_use]
-    data_std = data_std[dimensions_to_use]
+    Copyright (c) 2016 Julieta Martinez, Rayat Hossain, Javier Romero
 
-    return np.divide(raw_data - data_mean, data_std)
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    """
+
+    assert channels.size == 33 * 2
+    vals = np.reshape(channels, (33, -1))
+    # yapf: disable
+    I = np.array([ 0, 11, 13,  0, 12, 14, 11, 23, 25, 12, 24, 26])  # start points
+    J = np.array([11, 13, 15, 12, 14, 16, 23, 25, 27, 24, 26, 28])  # end points
+    LR = np.array([1,  1,  1,  0,  0,  0,  0,  0,  0,  1,  1,  1], dtype=bool)
+    # yapf: enable
+    # Make connection matrix
+    for i in np.arange(len(I)):
+        x, y = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(2)]
+        ax.plot(x, y, lw=2, c=lcolor if LR[i] else rcolor)
+
+    RADIUS = 350  # space around the subject
+    xroot, yroot = vals[0, 0], vals[0, 1]
+    #ax.set_xlim([-RADIUS + xroot, RADIUS + xroot])
+    #ax.set_ylim([-RADIUS + yroot, RADIUS + yroot])
+    if add_labels:
+        ax.set_xlabel("x")
+        ax.set_ylabel("z")
+
+    ax.set_aspect('equal')
 
 
 def show_fig(input, output):
     fig = plt.figure(figsize=(8, 4))
     ax1 = fig.add_subplot(121)
     ax1.title.set_text('2D input')
-    show2Dpose(input, ax1)
+    show2Dpose(input, ax1, hide_ticks=False)
     ax2 = fig.add_subplot(122, projection='3d')
     ax2.title.set_text('3D pred')
-    show3Dpose(output, ax2)
+    show3Dpose(output, ax2, hide_ticks=False)
     return fig
 
 
@@ -67,6 +109,11 @@ def main():
 
     # load input
     input = np.load(opt.input)
+    print(input.shape)
+    fig, ax = plt.subplots()
+    show2DposeLandmk(input.reshape(-1, 66)[0], ax)
+    fig.savefig('data/demo/input.png')
+    del fig, ax
 
     # load model options
     ckpt = torch.load(opt.load)
@@ -116,8 +163,13 @@ def main():
     input_h36m[14] = input[12]  # RShoulder
     input_h36m[15] = input[14]  # RElbow
     input_h36m[16] = input[16]  # RWrist
-    input_h36m = input_h36m.transpose(1, 0, 2).reshape(-1, 17 * 2, order='C')
-    input_h36m = normalize2d(input_h36m, stat_2d['mean'], stat_2d['std'])
+    input_h36m = input_h36m.transpose(1, 0, 2).reshape(-1, 17 * 2, order='c')
+    input_h36m = input_h36m - np.tile(input_h36m[:, :2], [1, 17])
+
+    input_mean = np.mean(input_h36m, axis=0)
+    input_std = np.std(input_h36m, axis=0)
+    print(input_std)
+    input_h36m = np.divide(input_h36m - input_mean, input_std, out=np.zeros_like(input_h36m), where=input_std != 0)
 
     del input
     input_h36m = torch.from_numpy(input_h36m).float().cuda()

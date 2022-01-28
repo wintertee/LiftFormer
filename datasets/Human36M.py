@@ -130,7 +130,7 @@ class HorizentalFlip(object):
         return inputs2d, outputs3d
 
 
-def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):  # blue, orange
+def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False, hide_ticks=True):  # blue, orange
     """
     Visualize a 3d skeleton
     Args
@@ -188,14 +188,15 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
         ax.set_ylabel("y")
         ax.set_zlabel("z")
 
-    # Get rid of the ticks and tick labels
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
+    if hide_ticks:
+        # Get rid of the ticks and tick labels
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
 
-    ax.get_xaxis().set_ticklabels([])
-    ax.get_yaxis().set_ticklabels([])
-    ax.set_zticklabels([])
+        ax.get_xaxis().set_ticklabels([])
+        ax.get_yaxis().set_ticklabels([])
+        ax.set_zticklabels([])
 
     # Get rid of the panes (actually, make them white)
     white = (1.0, 1.0, 1.0, 0.0)
@@ -209,7 +210,7 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     ax.w_zaxis.line.set_color(white)
 
 
-def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):
+def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False, hide_ticks=True):
     """Visualize a 2d skeleton
     Args
       channels: 64x1 vector. The pose to plot.
@@ -255,13 +256,14 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
         x, y = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(2)]
         ax.plot(x, y, lw=2, c=lcolor if LR[i] else rcolor)
 
-    # Get rid of the ticks
-    ax.set_xticks([])
-    ax.set_yticks([])
+    if hide_ticks:
+        # Get rid of the ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
 
-    # Get rid of tick labels
-    ax.get_xaxis().set_ticklabels([])
-    ax.get_yaxis().set_ticklabels([])
+        # Get rid of tick labels
+        ax.get_xaxis().set_ticklabels([])
+        ax.get_yaxis().set_ticklabels([])
 
     RADIUS = 350  # space around the subject
     xroot, yroot = vals[0, 0], vals[0, 1]
